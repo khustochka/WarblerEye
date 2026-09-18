@@ -4,8 +4,86 @@
 //
 
 import AppKit
+import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
+
+/// The facts about a file shown in the status bar.
+struct ImageInfo {
+    var pixelSize: CGSize
+    var colorModel: String
+    var format: String
+    var byteCount: Int
+    var date: Date?
+
+    var dimensions: String {
+        "\(Int(pixelSize.width))x\(Int(pixelSize.height))"
+    }
+
+    /// File size in kB, matching the decimal units Finder reports.
+    var fileSize: String {
+        "\(byteCount / 1000) kB"
+    }
+
+    var timestamp: String? {
+        guard let date else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.string(from: date)
+    }
+
+    /// Reads the metadata without decoding the image itself.
+    init?(url: URL) {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+                as? [CFString: Any] else {
+            return nil
+        }
+
+        pixelSize = CGSize(
+            width: properties[kCGImagePropertyPixelWidth] as? Double ?? 0,
+            height: properties[kCGImagePropertyPixelHeight] as? Double ?? 0
+        )
+
+        // The preferred extension ("jpeg", "png") reads more tersely in the
+        // status bar than the localized description ("JPEG image").
+        let type = CGImageSourceGetType(source) as String?
+        format = type.flatMap { UTType($0)?.preferredFilenameExtension?.uppercased() }
+            ?? "Image"
+
+        colorModel = Self.colorModel(from: properties)
+        byteCount = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        date = Self.captureDate(from: properties)
+            ?? (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate
+    }
+
+    /// The color model, preferring the profile name over the raw model since
+    /// "sRGB" says more to a person than "RGB".
+    private static func colorModel(from properties: [CFString: Any]) -> String {
+        if let profile = properties[kCGImagePropertyProfileName] as? String {
+            // Trim the version noise in names like "sRGB IEC61966-2.1".
+            return profile.split(separator: " ").first.map(String.init) ?? profile
+        }
+        if let model = properties[kCGImagePropertyColorModel] as? String {
+            return model
+        }
+        return "—"
+    }
+
+    /// When the photo was taken, which is more meaningful than when the file
+    /// was written.
+    private static func captureDate(from properties: [CFString: Any]) -> Date? {
+        guard let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
+              let raw = (exif[kCGImagePropertyExifDateTimeOriginal]
+                ?? exif[kCGImagePropertyExifDateTimeDigitized]) as? String else {
+            return nil
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        return formatter.date(from: raw)
+    }
+}
 
 /// The images in one folder, plus a cursor into them.
 ///
@@ -17,15 +95,16 @@ final class ImageBrowser {
     private(set) var urls: [URL] = []
     private(set) var index: Int = 0
     private(set) var image: NSImage?
+    private(set) var info: ImageInfo?
     private(set) var errorMessage: String?
 
     var current: URL? { urls.indices.contains(index) ? urls[index] : nil }
     var canGoNext: Bool { index + 1 < urls.count }
     var canGoPrevious: Bool { index > 0 }
 
-    /// Positional label such as "3 of 57", or nil when nothing is open.
+    /// Positional label such as "3/57", or nil when nothing is open.
     var position: String? {
-        urls.isEmpty ? nil : "\(index + 1) of \(urls.count)"
+        urls.isEmpty ? nil : "\(index + 1)/\(urls.count)"
     }
 
     /// Content types we are willing to display, as a superset of JPEG so that a
@@ -74,14 +153,17 @@ final class ImageBrowser {
     private func loadCurrent() {
         guard let url = current else {
             image = nil
+            info = nil
             errorMessage = nil
             return
         }
         if let loaded = NSImage(contentsOf: url) {
             image = loaded
+            info = ImageInfo(url: url)
             errorMessage = nil
         } else {
             image = nil
+            info = nil
             errorMessage = "Could not read \(url.lastPathComponent)."
         }
     }
