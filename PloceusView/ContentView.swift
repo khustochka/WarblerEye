@@ -82,17 +82,7 @@ struct ContentView: View {
             GeometryReader { proxy in
                 let drawn = Self.drawnSize(of: image.size, in: proxy.size, mode: zoomMode)
 
-                ScrollView([.horizontal, .vertical]) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .interpolation(.high)
-                        .frame(width: drawn.width, height: drawn.height)
-                        // Keep the image centred while it is smaller than the viewport.
-                        .frame(
-                            minWidth: proxy.size.width,
-                            minHeight: proxy.size.height
-                        )
-                }
+                ImageScrollView(image: image, drawnSize: drawn)
                 .focusable()
                 .focusEffectDisabled()
                 .focused($imageFocused)
