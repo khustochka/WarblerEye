@@ -46,15 +46,19 @@ final class ImageBrowser {
         loadCurrent()
     }
 
-    func next() {
-        guard canGoNext else { return }
-        index += 1
-        loadCurrent()
-    }
+    func next() { advance(by: 1) }
 
-    func previous() {
-        guard canGoPrevious else { return }
-        index -= 1
+    func previous() { advance(by: -1) }
+
+    /// Moves `offset` images through the folder, stopping at either end.
+    ///
+    /// Clamping rather than refusing means a large jump near the end still
+    /// lands on the last image instead of doing nothing.
+    func advance(by offset: Int) {
+        guard !urls.isEmpty else { return }
+        let target = min(max(index + offset, 0), urls.count - 1)
+        guard target != index else { return }
+        index = target
         loadCurrent()
     }
 

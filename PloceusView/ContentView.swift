@@ -13,16 +13,34 @@ struct ContentView: View {
     /// Zoom factor applied on top of the fit-to-window size. 1 means "fit".
     @State private var zoom: CGFloat = 1
 
+    /// Whether the image area holds keyboard focus, which is what lets the
+    /// arrow keys page through the folder.
+    @FocusState private var imageFocused: Bool
+
     private static let zoomRange: ClosedRange<CGFloat> = 0.1...20
+
+    /// Neutral surround for the image. Deliberately not pure black, which would
+    /// hide the edges of a dark photo, and fixed rather than theme-dependent so
+    /// colors are judged against a constant ground.
+    private static let backdrop = Color(white: 0.12)
 
     var body: some View {
         content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Self.backdrop)
             .frame(minWidth: 480, minHeight: 360)
             .navigationTitle(browser.current?.lastPathComponent ?? "PloceusView")
             .navigationSubtitle(browser.position ?? "")
             .toolbar { toolbar }
-            // Reset zoom so a new image always arrives fitted to the window.
-            .onChange(of: browser.current) { zoom = 1 }
+            .onAppear { imageFocused = true }
+            .onChange(of: browser.current) {
+                // Reset zoom so a new image always arrives fitted to the window.
+                zoom = 1
+                imageFocused = true
+            }
+            // The toolbar blends with the dark backdrop behind it, so the window
+            // chrome has to draw its title and controls as if on a dark surface.
+            .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
@@ -44,7 +62,18 @@ struct ContentView: View {
                             minHeight: proxy.size.height
                         )
                 }
-                .background(.background)
+                .focusable()
+                .focusEffectDisabled()
+                .focused($imageFocused)
+                .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
+                    let direction = press.key == .leftArrow ? -1 : 1
+                    browser.advance(by: direction * Self.step(for: press.modifiers))
+                    return .handled
+                }
+                .onKeyPress(.space) {
+                    browser.next()
+                    return .handled
+                }
             }
         } else {
             ContentUnavailableView {
@@ -60,33 +89,47 @@ struct ContentView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup {
-            Button { browser.previous() } label: {
+            Button { navigate(browser.previous) } label: {
                 Label("Previous", systemImage: "chevron.left")
             }
             .disabled(!browser.canGoPrevious)
 
-            Button { browser.next() } label: {
+            Button { navigate(browser.next) } label: {
                 Label("Next", systemImage: "chevron.right")
             }
             .disabled(!browser.canGoNext)
         }
 
         ToolbarItemGroup {
-            Button { scale(by: 1 / 1.25) } label: {
+            Button { navigate { scale(by: 1 / 1.25) } } label: {
                 Label("Zoom Out", systemImage: "minus.magnifyingglass")
             }
             .disabled(browser.image == nil || zoom <= Self.zoomRange.lowerBound)
 
-            Button { zoom = 1 } label: {
+            Button { navigate { zoom = 1 } } label: {
                 Label("Fit to Window", systemImage: "arrow.up.left.and.arrow.down.right")
             }
             .disabled(browser.image == nil || zoom == 1)
 
-            Button { scale(by: 1.25) } label: {
+            Button { navigate { scale(by: 1.25) } } label: {
                 Label("Zoom In", systemImage: "plus.magnifyingglass")
             }
             .disabled(browser.image == nil || zoom >= Self.zoomRange.upperBound)
         }
+    }
+
+    /// How far an arrow key jumps, given the modifiers held with it.
+    private static func step(for modifiers: EventModifiers) -> Int {
+        if modifiers.contains(.control) && modifiers.contains(.command) { return 100 }
+        if modifiers.contains(.option) && modifiers.contains(.command) { return 10 }
+        return 1
+    }
+
+    /// Runs a toolbar action and returns keyboard focus to the image, so the
+    /// arrow keys keep working after a click.
+    private func navigate(_ action: () -> Void) {
+        action()
+        imageFocused = true
     }
 
     private func scale(by factor: CGFloat) {

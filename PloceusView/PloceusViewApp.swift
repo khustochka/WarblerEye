@@ -40,13 +40,33 @@ struct PloceusViewApp: App {
                 Button("Open…") { browser.showOpenPanel() }
                     .keyboardShortcut("o")
             }
+            // The bare arrow keys are handled by the focused image view, so
+            // these carry Command-modified shortcuts to avoid swallowing them.
             CommandMenu("Image") {
                 Button("Next Image") { browser.next() }
-                    .keyboardShortcut(.rightArrow, modifiers: [])
+                    .keyboardShortcut(.rightArrow, modifiers: .command)
                     .disabled(!browser.canGoNext)
 
                 Button("Previous Image") { browser.previous() }
-                    .keyboardShortcut(.leftArrow, modifiers: [])
+                    .keyboardShortcut(.leftArrow, modifiers: .command)
+                    .disabled(!browser.canGoPrevious)
+
+                Divider()
+
+                Button("Forward 10") { browser.advance(by: 10) }
+                    .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                    .disabled(!browser.canGoNext)
+
+                Button("Back 10") { browser.advance(by: -10) }
+                    .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                    .disabled(!browser.canGoPrevious)
+
+                Button("Forward 100") { browser.advance(by: 100) }
+                    .keyboardShortcut(.rightArrow, modifiers: [.command, .control])
+                    .disabled(!browser.canGoNext)
+
+                Button("Back 100") { browser.advance(by: -100) }
+                    .keyboardShortcut(.leftArrow, modifiers: [.command, .control])
                     .disabled(!browser.canGoPrevious)
             }
         }
