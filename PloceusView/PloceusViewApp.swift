@@ -25,6 +25,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+extension Notification.Name {
+    static let zoomIn = Notification.Name("PloceusViewZoomIn")
+    static let zoomOut = Notification.Name("PloceusViewZoomOut")
+    static let zoomFit = Notification.Name("PloceusViewZoomFit")
+}
+
 @main
 struct PloceusViewApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -68,6 +74,20 @@ struct PloceusViewApp: App {
                 Button("Back 100") { browser.advance(by: -100) }
                     .keyboardShortcut(.leftArrow, modifiers: [.command, .control])
                     .disabled(!browser.canGoPrevious)
+            }
+
+            // Zoom has no on-screen controls, so the menu is where it is found.
+            CommandGroup(after: .sidebar) {
+                Button("Zoom In") { NotificationCenter.default.post(name: .zoomIn, object: nil) }
+                    .keyboardShortcut("+", modifiers: .command)
+
+                Button("Zoom Out") { NotificationCenter.default.post(name: .zoomOut, object: nil) }
+                    .keyboardShortcut("-", modifiers: .command)
+
+                Button("Fit to Window") { NotificationCenter.default.post(name: .zoomFit, object: nil) }
+                    .keyboardShortcut("0", modifiers: .command)
+
+                Divider()
             }
         }
     }

@@ -38,15 +38,27 @@ struct ContentView: View {
         }
         .frame(minWidth: 620, minHeight: 400)
         .navigationTitle(browser.current?.lastPathComponent ?? "PloceusView")
-        .toolbar { toolbar }
+        .background(
+            WindowTitleView(title: browser.current?.lastPathComponent ?? "PloceusView")
+                .frame(width: 0, height: 0)
+        )
         .onAppear { imageFocused = true }
         .onChange(of: browser.current) {
             // Reset zoom so a new image always arrives fitted to the window.
             zoom = 1
             imageFocused = true
         }
-        // The toolbar blends with the dark backdrop behind it, so the window
-        // chrome has to draw its title and controls as if on a dark surface.
+        .onReceive(NotificationCenter.default.publisher(for: .zoomIn)) { _ in
+            scale(by: 1.25)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .zoomOut)) { _ in
+            scale(by: 1 / 1.25)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .zoomFit)) { _ in
+            zoom = 1
+        }
+        // The title bar blends with the dark backdrop behind it, so the window
+        // chrome has to draw its title as if on a dark surface.
         .preferredColorScheme(.dark)
     }
 
@@ -77,6 +89,14 @@ struct ContentView: View {
                 }
                 .onKeyPress(.space) {
                     browser.next()
+                    return .handled
+                }
+                .onKeyPress(keys: ["+", "=", "-", "0"]) { press in
+                    switch press.key.character {
+                    case "+", "=": scale(by: 1.25)
+                    case "-": scale(by: 1 / 1.25)
+                    default: zoom = 1
+                    }
                     return .handled
                 }
                 .onChange(of: drawn.width, initial: true) { displayedWidth = drawn.width }
@@ -129,38 +149,6 @@ struct ContentView: View {
         return "\(Int((displayedWidth / pixelWidth * 100).rounded()))%"
     }
 
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        ToolbarItemGroup {
-            Button { navigate(browser.previous) } label: {
-                Label("Previous", systemImage: "chevron.left")
-            }
-            .disabled(!browser.canGoPrevious)
-
-            Button { navigate(browser.next) } label: {
-                Label("Next", systemImage: "chevron.right")
-            }
-            .disabled(!browser.canGoNext)
-        }
-
-        ToolbarItemGroup {
-            Button { navigate { scale(by: 1 / 1.25) } } label: {
-                Label("Zoom Out", systemImage: "minus.magnifyingglass")
-            }
-            .disabled(browser.image == nil || zoom <= Self.zoomRange.lowerBound)
-
-            Button { navigate { zoom = 1 } } label: {
-                Label("Fit to Window", systemImage: "arrow.up.left.and.arrow.down.right")
-            }
-            .disabled(browser.image == nil || zoom == 1)
-
-            Button { navigate { scale(by: 1.25) } } label: {
-                Label("Zoom In", systemImage: "plus.magnifyingglass")
-            }
-            .disabled(browser.image == nil || zoom >= Self.zoomRange.upperBound)
-        }
-    }
-
     /// The size an image is drawn at: fitted to the viewport, times the zoom.
     private static func fittedSize(
         of image: CGSize,
@@ -180,13 +168,6 @@ struct ContentView: View {
         if modifiers.contains(.control) && modifiers.contains(.command) { return 100 }
         if modifiers.contains(.option) && modifiers.contains(.command) { return 10 }
         return 1
-    }
-
-    /// Runs a toolbar action and returns keyboard focus to the image, so the
-    /// arrow keys keep working after a click.
-    private func navigate(_ action: () -> Void) {
-        action()
-        imageFocused = true
     }
 
     private func scale(by factor: CGFloat) {
