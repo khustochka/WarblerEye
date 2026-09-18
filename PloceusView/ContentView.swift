@@ -10,8 +10,19 @@ import SwiftUI
 struct ContentView: View {
     let browser: ImageBrowser
 
-    /// Zoom factor applied on top of the fit-to-window size. 1 means "fit".
-    @State private var zoom: CGFloat = 1
+    /// How the image is sized: scaled to the window, or at an explicit scale
+    /// where 1 is one image pixel per point.
+    enum ZoomMode: Equatable {
+        case fit
+        case scale(CGFloat)
+    }
+
+    @State private var zoomMode: ZoomMode = .fit
+
+    /// Viewport and image size, mirrored into state so the menu commands can
+    /// zoom relative to the current on-screen size.
+    @State private var viewportSize: CGSize = .zero
+    @State private var imageSize: CGSize = .zero
 
     /// Size the image is actually drawn at, used to report the zoom percentage
     /// relative to the file's pixel dimensions.
@@ -45,17 +56,20 @@ struct ContentView: View {
         .onAppear { imageFocused = true }
         .onChange(of: browser.current) {
             // Reset zoom so a new image always arrives fitted to the window.
-            zoom = 1
+            zoomMode = .fit
             imageFocused = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .zoomIn)) { _ in
-            scale(by: 1.25)
+            scale(by: 1.25, in: viewportSize, image: imageSize)
         }
         .onReceive(NotificationCenter.default.publisher(for: .zoomOut)) { _ in
-            scale(by: 1 / 1.25)
+            scale(by: 1 / 1.25, in: viewportSize, image: imageSize)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .zoomActual)) { _ in
+            zoomMode = .scale(1)
         }
         .onReceive(NotificationCenter.default.publisher(for: .zoomFit)) { _ in
-            zoom = 1
+            zoomMode = .fit
         }
         // The title bar blends with the dark backdrop behind it, so the window
         // chrome has to draw its title as if on a dark surface.
@@ -66,7 +80,7 @@ struct ContentView: View {
     private var content: some View {
         if let image = browser.image {
             GeometryReader { proxy in
-                let drawn = Self.fittedSize(of: image.size, in: proxy.size, zoom: zoom)
+                let drawn = Self.drawnSize(of: image.size, in: proxy.size, mode: zoomMode)
 
                 ScrollView([.horizontal, .vertical]) {
                     Image(nsImage: image)
@@ -91,15 +105,18 @@ struct ContentView: View {
                     browser.next()
                     return .handled
                 }
-                .onKeyPress(keys: ["+", "=", "-", "0"]) { press in
+                .onKeyPress(keys: ["+", "=", "-", "0", "/"]) { press in
                     switch press.key.character {
-                    case "+", "=": scale(by: 1.25)
-                    case "-": scale(by: 1 / 1.25)
-                    default: zoom = 1
+                    case "+", "=": scale(by: 1.25, in: proxy.size, image: image.size)
+                    case "-": scale(by: 1 / 1.25, in: proxy.size, image: image.size)
+                    case "/": zoomMode = .fit
+                    default: zoomMode = .scale(1)
                     }
                     return .handled
                 }
                 .onChange(of: drawn.width, initial: true) { displayedWidth = drawn.width }
+                .onChange(of: proxy.size, initial: true) { viewportSize = proxy.size }
+                .onChange(of: image.size, initial: true) { imageSize = image.size }
             }
         } else {
             ContentUnavailableView {
@@ -149,18 +166,27 @@ struct ContentView: View {
         return "\(Int((displayedWidth / pixelWidth * 100).rounded()))%"
     }
 
-    /// The size an image is drawn at: fitted to the viewport, times the zoom.
-    private static func fittedSize(
+    /// The size an image is drawn at under the current mode.
+    private static func drawnSize(
         of image: CGSize,
         in viewport: CGSize,
-        zoom: CGFloat
+        mode: ZoomMode
     ) -> CGSize {
         guard image.width > 0, image.height > 0 else { return .zero }
-        let fit = min(viewport.width / image.width, viewport.height / image.height)
-        return CGSize(
-            width: image.width * fit * zoom,
-            height: image.height * fit * zoom
-        )
+        let factor: CGFloat
+        switch mode {
+        case .fit:
+            factor = fitScale(of: image, in: viewport)
+        case .scale(let scale):
+            factor = scale
+        }
+        return CGSize(width: image.width * factor, height: image.height * factor)
+    }
+
+    /// The scale at which the image exactly fits the viewport.
+    private static func fitScale(of image: CGSize, in viewport: CGSize) -> CGFloat {
+        guard image.width > 0, image.height > 0 else { return 1 }
+        return min(viewport.width / image.width, viewport.height / image.height)
     }
 
     /// How far an arrow key jumps, given the modifiers held with it.
@@ -170,8 +196,17 @@ struct ContentView: View {
         return 1
     }
 
-    private func scale(by factor: CGFloat) {
-        zoom = (zoom * factor).clamped(to: Self.zoomRange)
+    /// Zooms relative to whatever is on screen now, so the first step out of
+    /// fit mode continues from the size the user is looking at.
+    private func scale(by factor: CGFloat, in viewport: CGSize, image: CGSize) {
+        let current: CGFloat
+        switch zoomMode {
+        case .fit:
+            current = Self.fitScale(of: image, in: viewport)
+        case .scale(let scale):
+            current = scale
+        }
+        zoomMode = .scale((current * factor).clamped(to: Self.zoomRange))
     }
 }
 

@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension Notification.Name {
     static let zoomIn = Notification.Name("PloceusViewZoomIn")
     static let zoomOut = Notification.Name("PloceusViewZoomOut")
+    static let zoomActual = Notification.Name("PloceusViewZoomActual")
     static let zoomFit = Notification.Name("PloceusViewZoomFit")
 }
 
@@ -84,8 +85,11 @@ struct PloceusViewApp: App {
                 Button("Zoom Out") { NotificationCenter.default.post(name: .zoomOut, object: nil) }
                     .keyboardShortcut("-", modifiers: .command)
 
-                Button("Fit to Window") { NotificationCenter.default.post(name: .zoomFit, object: nil) }
+                Button("Actual Size") { NotificationCenter.default.post(name: .zoomActual, object: nil) }
                     .keyboardShortcut("0", modifiers: .command)
+
+                Button("Fit to Window") { NotificationCenter.default.post(name: .zoomFit, object: nil) }
+                    .keyboardShortcut("/", modifiers: .command)
 
                 Divider()
             }
