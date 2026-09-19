@@ -15,10 +15,19 @@ struct ImageScrollView: NSViewRepresentable {
     let image: NSImage
     let drawnSize: CGSize
 
+    /// Called for an arrow key that should page rather than pan, with the
+    /// direction (-1 left, 1 right) and the modifiers held.
+    var onPage: ((Int, NSEvent.ModifierFlags) -> Void)?
+
+    /// Called for a key the image view does not consume, so the owning view can
+    /// act on zoom and paging shortcuts.
+    var onKey: ((String, NSEvent.ModifierFlags) -> Bool)?
+
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
         scrollView.contentView = CenteringClipView()
-        let imageView = NSImageView()
+        let imageView = DraggableImageView()
+        imageView.scrollViewProvider = { [weak scrollView] in scrollView }
         // The frame is set to the drawn size, so the image fills it exactly.
         imageView.imageScaling = .scaleAxesIndependently
         imageView.animates = false
@@ -33,7 +42,14 @@ struct ImageScrollView: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let imageView = scrollView.documentView as? NSImageView else { return }
+        guard let imageView = scrollView.documentView as? DraggableImageView else { return }
+        context.coordinator.scrollView = scrollView
+        imageView.onDrag = { [weak scrollView] delta in
+            guard let scrollView else { return }
+            Coordinator.pan(scrollView, by: delta)
+        }
+        imageView.onPage = onPage
+        imageView.onKey = onKey
 
         let viewport = scrollView.contentView.bounds.size
         let oldSize = imageView.frame.size
@@ -47,11 +63,15 @@ struct ImageScrollView: NSViewRepresentable {
         if imageView.image !== image {
             imageView.image = image
         }
+        if let window = scrollView.window, window.firstResponder !== imageView {
+            window.makeFirstResponder(imageView)
+        }
 
         // The document is exactly the drawn image; the clip view centres it
         // when it is smaller than the viewport.
         if imageView.frame.size != drawnSize {
             imageView.frame = CGRect(origin: .zero, size: drawnSize)
+            scrollView.window?.invalidateCursorRects(for: imageView)
         }
 
         // Restoring the anchor is only meaningful while the image overflows
@@ -73,6 +93,29 @@ struct ImageScrollView: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     final class Coordinator {
+        weak var scrollView: NSScrollView?
+        var didPublishPan = false
+
+        /// Scrolls by a delta in points, clamped so the image cannot be pushed
+        /// past its own edges.
+        static func pan(_ scrollView: NSScrollView, by delta: CGSize) {
+            guard let document = scrollView.documentView else { return }
+            let viewport = scrollView.contentView.bounds.size
+            let content = document.frame.size
+            let origin = scrollView.contentView.bounds.origin
+
+            // An axis that fits is centred by the clip view; leave it alone.
+            let x = content.width > viewport.width
+                ? min(max(origin.x + delta.width, 0), content.width - viewport.width)
+                : origin.x
+            let y = content.height > viewport.height
+                ? min(max(origin.y + delta.height, 0), content.height - viewport.height)
+                : origin.y
+
+            scrollView.contentView.scroll(to: CGPoint(x: x, y: y))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
+
         /// The point of the content at the viewport's centre, as a fraction of
         /// the content size.
         func anchor(origin: CGPoint, contentSize: CGSize, viewport: CGSize) -> CGPoint {
@@ -126,5 +169,107 @@ final class CenteringClipView: NSClipView {
             rect.origin.y = (document.height - rect.height) / 2
         }
         return rect
+    }
+}
+
+
+/// An image view that pans its scroll view when dragged or arrowed.
+///
+/// Key handling lives here rather than in SwiftUI: the scroll view sits ahead
+/// of SwiftUI's focusable wrapper in the responder chain, so `onKeyPress` never
+/// sees the arrow keys.
+final class DraggableImageView: NSImageView {
+    var onDrag: ((CGSize) -> Void)?
+    var onPage: ((Int, NSEvent.ModifierFlags) -> Void)?
+    var onKey: ((String, NSEvent.ModifierFlags) -> Bool)?
+    var scrollViewProvider: (() -> NSScrollView?)?
+
+    override var acceptsFirstResponder: Bool { true }
+
+    /// Take keyboard focus as soon as the view is in a window, so the bare-key
+    /// shortcuts work on a freshly opened image without a click first.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        // The window is not key yet at this point in the open sequence.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.window === window else { return }
+            window.makeFirstResponder(self)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        // Arrow keys carry .numericPad (and sometimes .function) from the
+        // system, so those are not part of what the user actually held.
+        let modifiers = event.modifierFlags
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.numericPad, .function])
+        let bare = modifiers.isEmpty
+
+        switch Int(event.keyCode) {
+        case 123, 124, 125, 126:  // left, right, down, up
+            // Bare arrows always move within the image; paging lives on the
+            // Command-modified shortcuts.
+            if bare {
+                onDrag?(Self.panDelta(keyCode: event.keyCode))
+                return
+            }
+            if event.keyCode == 123 || event.keyCode == 124 {
+                onPage?(event.keyCode == 123 ? -1 : 1, modifiers)
+                return
+            }
+        default:
+            break
+        }
+
+        if let characters = event.charactersIgnoringModifiers,
+           onKey?(characters, modifiers) == true {
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    /// How far one arrow press pans, in points.
+    private static func panDelta(keyCode: UInt16) -> CGSize {
+        let stride: CGFloat = 80
+        switch keyCode {
+        case 123: return CGSize(width: -stride, height: 0)
+        case 124: return CGSize(width: stride, height: 0)
+        // The scroll origin grows upward, so a down arrow decreases it.
+        case 125: return CGSize(width: 0, height: -stride)
+        default: return CGSize(width: 0, height: stride)
+        }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard canPan else { return }
+        NSCursor.closedHand.set()
+        // Dragging the image right should reveal content to its left, so the
+        // scroll origin moves opposite to the cursor.
+        onDrag?(CGSize(width: -event.deltaX, height: event.deltaY))
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        // Restore the resting cursor after a drag.
+        window?.invalidateCursorRects(for: self)
+    }
+
+    /// Whether any part of the image lies outside the viewport.
+    private var canPan: Bool {
+        guard let clip = (enclosingScrollView ?? scrollViewProvider?())?.contentView else {
+            return false
+        }
+        return frame.width > clip.bounds.width + 1
+            || frame.height > clip.bounds.height + 1
+    }
+
+    override func resetCursorRects() {
+        // Only advertise dragging when there is somewhere to drag to.
+        guard canPan else { return }
+        addCursorRect(bounds, cursor: .openHand)
     }
 }

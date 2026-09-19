@@ -28,10 +28,6 @@ struct ContentView: View {
     /// relative to the file's pixel dimensions.
     @State private var displayedWidth: CGFloat = 0
 
-    /// Whether the image area holds keyboard focus, which is what lets the
-    /// arrow keys page through the folder.
-    @FocusState private var imageFocused: Bool
-
     private static let zoomRange: ClosedRange<CGFloat> = 0.1...20
 
     /// Neutral surround for the image. Deliberately not pure black, which would
@@ -53,11 +49,9 @@ struct ContentView: View {
             WindowTitleView(title: browser.current?.lastPathComponent ?? "PloceusView")
                 .frame(width: 0, height: 0)
         )
-        .onAppear { imageFocused = true }
         .onChange(of: browser.current) {
             // Reset zoom so a new image always arrives fitted to the window.
             zoomMode = .fit
-            imageFocused = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .zoomIn)) { _ in
             scale(by: 1.25, in: viewportSize, image: imageSize)
@@ -82,28 +76,21 @@ struct ContentView: View {
             GeometryReader { proxy in
                 let drawn = Self.drawnSize(of: image.size, in: proxy.size, mode: zoomMode)
 
-                ImageScrollView(image: image, drawnSize: drawn)
-                .focusable()
-                .focusEffectDisabled()
-                .focused($imageFocused)
-                .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
-                    let direction = press.key == .leftArrow ? -1 : 1
-                    browser.advance(by: direction * Self.step(for: press.modifiers))
-                    return .handled
-                }
-                .onKeyPress(.space) {
-                    browser.next()
-                    return .handled
-                }
-                .onKeyPress(keys: ["+", "=", "-", "0", "/"]) { press in
-                    switch press.key.character {
-                    case "+", "=": scale(by: 1.25, in: proxy.size, image: image.size)
-                    case "-": scale(by: 1 / 1.25, in: proxy.size, image: image.size)
-                    case "/": zoomMode = .fit
-                    default: zoomMode = .scale(1)
+                ImageScrollView(
+                    image: image,
+                    drawnSize: drawn,
+                    onPage: { direction, modifiers in
+                        browser.advance(by: direction * Self.step(for: modifiers))
+                    },
+                    onKey: { characters, modifiers in
+                        handleKey(
+                            characters,
+                            modifiers: modifiers,
+                            viewport: proxy.size,
+                            image: image.size
+                        )
                     }
-                    return .handled
-                }
+                )
                 .onChange(of: drawn.width, initial: true) { displayedWidth = drawn.width }
                 .onChange(of: proxy.size, initial: true) { viewportSize = proxy.size }
                 .onChange(of: image.size, initial: true) { imageSize = image.size }
@@ -179,8 +166,33 @@ struct ContentView: View {
         return min(viewport.width / image.width, viewport.height / image.height)
     }
 
+    /// Handles the keys the image view does not consume itself.
+    /// Returns whether the key was acted on.
+    private func handleKey(
+        _ characters: String,
+        modifiers: NSEvent.ModifierFlags,
+        viewport: CGSize,
+        image: CGSize
+    ) -> Bool {
+        switch characters {
+        case " ":
+            browser.next()
+        case "+", "=":
+            scale(by: 1.25, in: viewport, image: image)
+        case "-":
+            scale(by: 1 / 1.25, in: viewport, image: image)
+        case "/":
+            zoomMode = .fit
+        case "0":
+            zoomMode = .scale(1)
+        default:
+            return false
+        }
+        return true
+    }
+
     /// How far an arrow key jumps, given the modifiers held with it.
-    private static func step(for modifiers: EventModifiers) -> Int {
+    private static func step(for modifiers: NSEvent.ModifierFlags) -> Int {
         if modifiers.contains(.control) && modifiers.contains(.command) { return 100 }
         if modifiers.contains(.option) && modifiers.contains(.command) { return 10 }
         return 1
