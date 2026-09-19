@@ -128,6 +128,10 @@ struct ContentView: View {
                 Text(name)
             }
             Spacer(minLength: 0)
+            if let notice = browser.notice {
+                Text(notice)
+                    .foregroundStyle(.secondary)
+            }
         }
         .font(.system(size: 11).monospacedDigit())
         .lineLimit(1)

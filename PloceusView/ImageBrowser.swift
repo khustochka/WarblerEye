@@ -111,6 +111,15 @@ final class ImageBrowser {
     /// Which way the user is moving, so the cache fills ahead of them.
     private var direction = 1
 
+    /// Files trashed this session, newest last, so they can be put back.
+    /// Each entry keeps where the file sat in the list so undo restores order.
+    private var trashed: [(url: URL, trashURL: URL, index: Int)] = []
+
+    /// A short note for the status bar, such as a trash or undo confirmation.
+    private(set) var notice: String?
+
+    var canUndo: Bool { !trashed.isEmpty }
+
     /// How many images to keep decoded on either side of the current one.
     /// Each is a full-resolution bitmap, so this trades memory for latency.
     private static let prefetchRadius = 2
@@ -164,6 +173,53 @@ final class ImageBrowser {
         guard target != index else { return }
         direction = target > index ? 1 : -1
         index = target
+        loadCurrent(clearingNotice: true)
+    }
+
+    /// Moves the current image to the Trash and shows the next one.
+    func trashCurrent() {
+        guard let url = current else { return }
+
+        var resulting: NSURL?
+        do {
+            try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
+        } catch {
+            notice = "Could not move \(url.lastPathComponent) to the Trash."
+            return
+        }
+
+        let removed = index
+        if let trashURL = resulting as URL? {
+            trashed.append((url: url, trashURL: trashURL, index: removed))
+        }
+
+        cache[url] = nil
+        prefetching[url]?.cancel()
+        prefetching[url] = nil
+        urls.remove(at: removed)
+
+        // Stay on the same position, which is now the following image, unless
+        // the last one was removed.
+        index = min(removed, max(urls.count - 1, 0))
+        notice = "Moved \(url.lastPathComponent) to Trash"
+        loadCurrent()
+    }
+
+    /// Puts the most recently trashed file back and returns to it.
+    func undoTrash() {
+        guard let entry = trashed.popLast() else { return }
+
+        do {
+            try FileManager.default.moveItem(at: entry.trashURL, to: entry.url)
+        } catch {
+            notice = "Could not restore \(entry.url.lastPathComponent)."
+            return
+        }
+
+        let target = min(entry.index, urls.count)
+        urls.insert(entry.url, at: target)
+        index = target
+        notice = "Restored \(entry.url.lastPathComponent)"
         loadCurrent()
     }
 
@@ -176,7 +232,8 @@ final class ImageBrowser {
         open(url)
     }
 
-    private func loadCurrent() {
+    private func loadCurrent(clearingNotice: Bool = false) {
+        if clearingNotice { notice = nil }
         guard let url = current else {
             image = nil
             info = nil

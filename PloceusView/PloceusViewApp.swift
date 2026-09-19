@@ -77,6 +77,18 @@ struct PloceusViewApp: App {
                     .disabled(!browser.canGoPrevious)
             }
 
+            CommandGroup(replacing: .undoRedo) {
+                Button("Undo Move to Trash") { browser.undoTrash() }
+                    .keyboardShortcut("z")
+                    .disabled(!browser.canUndo)
+            }
+
+            CommandGroup(after: .saveItem) {
+                Button("Move to Trash") { browser.trashCurrent() }
+                    .keyboardShortcut(.delete, modifiers: .command)
+                    .disabled(browser.current == nil)
+            }
+
             // Zoom has no on-screen controls, so the menu is where it is found.
             CommandGroup(after: .sidebar) {
                 Button("Zoom In") { NotificationCenter.default.post(name: .zoomIn, object: nil) }
