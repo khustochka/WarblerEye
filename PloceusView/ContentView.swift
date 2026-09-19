@@ -19,6 +19,10 @@ struct ContentView: View {
 
     @State private var zoomMode: ZoomMode = .fit
 
+    /// Whether the metadata panel is open. Sticks across images so paging
+    /// through a folder with it open keeps it open.
+    @State private var showsMetadata = false
+
     /// Viewport and image size, mirrored into state so the menu commands can
     /// zoom relative to the current on-screen size.
     @State private var viewportSize: CGSize = .zero
@@ -42,6 +46,12 @@ struct ContentView: View {
                 .background(Self.backdrop)
 
             statusBar
+        }
+        .inspector(isPresented: $showsMetadata) {
+            MetadataInspector(
+                info: browser.info,
+                filename: browser.current?.lastPathComponent
+            )
         }
         .frame(minWidth: 620, minHeight: 400)
         .navigationTitle(browser.current?.lastPathComponent ?? "PloceusView")
@@ -189,6 +199,8 @@ struct ContentView: View {
             zoomMode = .fit
         case "0":
             zoomMode = .scale(1)
+        case "i", "I":
+            showsMetadata.toggle()
         default:
             return false
         }

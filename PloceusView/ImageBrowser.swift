@@ -19,6 +19,11 @@ nonisolated struct ImageInfo {
     var byteCount: Int
     var date: Date?
 
+    /// Every property the file declares, grouped as ImageIO reports them and
+    /// rendered as text. Flattened at read time rather than held as the raw
+    /// dictionary so the struct stays sendable across the prefetch boundary.
+    var metadata: [MetadataGroup] = []
+
     var dimensions: String {
         "\(Int(pixelSize.width))x\(Int(pixelSize.height))"
     }
@@ -59,6 +64,7 @@ nonisolated struct ImageInfo {
         date = Self.captureDate(from: properties)
             ?? (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
                 .contentModificationDate
+        metadata = MetadataGroup.groups(from: properties)
     }
 
     /// The color model, preferring the profile name over the raw model since
