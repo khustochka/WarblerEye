@@ -1,6 +1,6 @@
 //
 //  ImageBrowser.swift
-//  PloceusView
+//  WarblerEye
 //
 
 import AppKit

@@ -1,6 +1,6 @@
 //
 //  WindowTitleView.swift
-//  PloceusView
+//  WarblerEye
 //
 
 import AppKit

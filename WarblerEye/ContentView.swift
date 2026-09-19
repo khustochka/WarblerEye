@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  PloceusView
+//  WarblerEye
 //
 //  Created by Vitalii Khustochka on 2026-09-18.
 //
@@ -54,9 +54,9 @@ struct ContentView: View {
             )
         }
         .frame(minWidth: 620, minHeight: 400)
-        .navigationTitle(browser.current?.lastPathComponent ?? "PloceusView")
+        .navigationTitle(browser.current?.lastPathComponent ?? "WarblerEye")
         .background(
-            WindowTitleView(title: browser.current?.lastPathComponent ?? "PloceusView")
+            WindowTitleView(title: browser.current?.lastPathComponent ?? "WarblerEye")
                 .frame(width: 0, height: 0)
         )
         .onChange(of: browser.current) {

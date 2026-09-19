@@ -50,7 +50,7 @@ command -v magick >/dev/null || {
 }
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-appiconset="$project_root/PloceusView/Assets.xcassets/AppIcon.appiconset"
+appiconset="$project_root/WarblerEye/Assets.xcassets/AppIcon.appiconset"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -89,8 +89,8 @@ for size in 16 32 128 256 512; do
         "$iconset/icon_${size}x${size}@2x.png"
 done
 
-iconutil -c icns "$iconset" -o "$work/PloceusView.icns"
-echo "Built:      $(du -h "$work/PloceusView.icns" | cut -f1) icns"
+iconutil -c icns "$iconset" -o "$work/WarblerEye.icns"
+echo "Built:      $(du -h "$work/WarblerEye.icns" | cut -f1) icns"
 
 if (( install_icon )); then
     rm -rf "$appiconset"
@@ -135,5 +135,5 @@ if (( preview )); then
 fi
 
 # Keep the .icns beside the project for anyone who wants it directly.
-cp "$work/PloceusView.icns" "$project_root/Tools/PloceusView.icns"
-echo "Also wrote: Tools/PloceusView.icns"
+cp "$work/WarblerEye.icns" "$project_root/Tools/WarblerEye.icns"
+echo "Also wrote: Tools/WarblerEye.icns"

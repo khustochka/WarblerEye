@@ -1,6 +1,6 @@
 //
-//  PloceusViewApp.swift
-//  PloceusView
+//  WarblerEyeApp.swift
+//  WarblerEye
 //
 //  Created by Vitalii Khustochka on 2026-09-18.
 //
@@ -26,14 +26,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 extension Notification.Name {
-    static let zoomIn = Notification.Name("PloceusViewZoomIn")
-    static let zoomOut = Notification.Name("PloceusViewZoomOut")
-    static let zoomActual = Notification.Name("PloceusViewZoomActual")
-    static let zoomFit = Notification.Name("PloceusViewZoomFit")
+    static let zoomIn = Notification.Name("WarblerEyeZoomIn")
+    static let zoomOut = Notification.Name("WarblerEyeZoomOut")
+    static let zoomActual = Notification.Name("WarblerEyeZoomActual")
+    static let zoomFit = Notification.Name("WarblerEyeZoomFit")
 }
 
 @main
-struct PloceusViewApp: App {
+struct WarblerEyeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var browser = ImageBrowser()
 

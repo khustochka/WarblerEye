@@ -1,6 +1,6 @@
 //
 //  MetadataInspector.swift
-//  PloceusView
+//  WarblerEye
 //
 
 import SwiftUI
