@@ -167,7 +167,9 @@ struct ContentView: View {
         let factor: CGFloat
         switch mode {
         case .fit:
-            factor = fitScale(of: image, in: viewport)
+            // An image smaller than the window is shown at its own size:
+            // enlarging it would only make a soft picture out of a sharp one.
+            factor = min(fitScale(of: image, in: viewport), 1)
         case .scale(let scale):
             factor = scale
         }
@@ -220,7 +222,7 @@ struct ContentView: View {
         let current: CGFloat
         switch zoomMode {
         case .fit:
-            current = Self.fitScale(of: image, in: viewport)
+            current = min(Self.fitScale(of: image, in: viewport), 1)
         case .scale(let scale):
             current = scale
         }
