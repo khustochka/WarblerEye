@@ -9,7 +9,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The facts about a file shown in the status bar.
-struct ImageInfo {
+///
+/// Reads only the file header, so it is safe to build off the main actor while
+/// prefetching.
+nonisolated struct ImageInfo {
     var pixelSize: CGSize
     var colorModel: String
     var format: String
@@ -98,6 +101,25 @@ final class ImageBrowser {
     private(set) var info: ImageInfo?
     private(set) var errorMessage: String?
 
+    /// Decoded neighbours, so paging does not wait on a decode.
+    private var cache: [URL: Loaded] = [:]
+
+    /// Prefetches in flight, kept so they can be cancelled when the user moves
+    /// somewhere else and their results are no longer wanted.
+    private var prefetching: [URL: Task<Void, Never>] = [:]
+
+    /// Which way the user is moving, so the cache fills ahead of them.
+    private var direction = 1
+
+    /// How many images to keep decoded on either side of the current one.
+    /// Each is a full-resolution bitmap, so this trades memory for latency.
+    private static let prefetchRadius = 2
+
+    struct Loaded: @unchecked Sendable {
+        var image: NSImage
+        var info: ImageInfo?
+    }
+
     var current: URL? { urls.indices.contains(index) ? urls[index] : nil }
     var canGoNext: Bool { index + 1 < urls.count }
     var canGoPrevious: Bool { index > 0 }
@@ -115,6 +137,9 @@ final class ImageBrowser {
 
     /// Opens `url` and loads the sibling images in its folder.
     func open(_ url: URL) {
+        for task in prefetching.values { task.cancel() }
+        prefetching.removeAll()
+        cache.removeAll()
         urls = Self.siblings(of: url)
         index = urls.firstIndex(of: url.resolvingSymlinksInPath()) ?? 0
         // A file we cannot enumerate the parent of is still worth showing alone.
@@ -137,6 +162,7 @@ final class ImageBrowser {
         guard !urls.isEmpty else { return }
         let target = min(max(index + offset, 0), urls.count - 1)
         guard target != index else { return }
+        direction = target > index ? 1 : -1
         index = target
         loadCurrent()
     }
@@ -157,15 +183,75 @@ final class ImageBrowser {
             errorMessage = nil
             return
         }
-        if let loaded = NSImage(contentsOf: url) {
-            image = loaded
-            info = ImageInfo(url: url)
+
+        if let hit = cache[url] {
+            image = hit.image
+            info = hit.info
+            errorMessage = nil
+        } else if let loaded = NSImage(contentsOf: url) {
+            let entry = Loaded(image: loaded, info: ImageInfo(url: url))
+            cache[url] = entry
+            image = entry.image
+            info = entry.info
             errorMessage = nil
         } else {
             image = nil
             info = nil
             errorMessage = "Could not read \(url.lastPathComponent)."
         }
+
+        prefetchNeighbours()
+    }
+
+    /// Decodes the images around the current one, ahead of the user first.
+    private func prefetchNeighbours() {
+        let wanted = neighbourURLs()
+
+        // Drop anything outside the window, cancelling work still in flight.
+        let keep = Set(wanted + [current].compactMap { $0 })
+        cache = cache.filter { keep.contains($0.key) }
+        for (url, task) in prefetching where !keep.contains(url) {
+            task.cancel()
+            prefetching[url] = nil
+        }
+
+        for url in wanted where cache[url] == nil && prefetching[url] == nil {
+            prefetching[url] = Task { [weak self] in
+                // Decoding is the slow part, so keep it off the main actor.
+                let loaded = await Task.detached(priority: .utility) { () -> Loaded? in
+                    guard let image = NSImage(contentsOf: url) else { return nil }
+                    return Loaded(image: image, info: ImageInfo(url: url))
+                }.value
+
+                guard !Task.isCancelled else { return }
+                // This task already runs on the main actor; only the decode
+                // above was detached.
+                self?.store(loaded, for: url)
+            }
+        }
+    }
+
+    @MainActor
+    private func store(_ loaded: Loaded?, for url: URL) {
+        prefetching[url] = nil
+        guard let loaded else { return }
+        // The window may have moved on while this was decoding.
+        guard neighbourURLs().contains(url) || url == current else { return }
+        cache[url] = loaded
+    }
+
+    /// The neighbours worth holding, nearest first and favouring the direction
+    /// of travel so the next image is always the first one fetched.
+    private func neighbourURLs() -> [URL] {
+        var offsets: [Int] = []
+        for step in 1...Self.prefetchRadius {
+            offsets.append(direction * step)
+            offsets.append(-direction * step)
+        }
+        return offsets
+            .map { index + $0 }
+            .filter { urls.indices.contains($0) }
+            .map { urls[$0] }
     }
 
     /// Image files in the same folder as `url`, including `url`, in Finder order.
