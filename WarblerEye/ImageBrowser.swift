@@ -80,16 +80,30 @@ nonisolated struct ImageInfo {
 
     /// Reads the metadata without decoding the image itself.
     init?(url: URL) {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
-                as? [CFString: Any] else {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        self.init(url: url, source: source)
+    }
+
+    /// Reads the metadata from a source the caller already opened, so decoding
+    /// and inspecting one file does not open it twice.
+    init?(url: URL, source: CGImageSource) {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+            as? [CFString: Any] else {
             return nil
         }
 
-        pixelSize = CGSize(
+        // ImageIO reports the stored dimensions, before the orientation tag is
+        // applied. The status bar and the zoom percentage both describe what is
+        // on screen, so a quarter-turn has to swap the axes here.
+        let stored = CGSize(
             width: properties[kCGImagePropertyPixelWidth] as? Double ?? 0,
             height: properties[kCGImagePropertyPixelHeight] as? Double ?? 0
         )
+        let orientation = (properties[kCGImagePropertyOrientation] as? UInt32)
+            .flatMap(CGImagePropertyOrientation.init(rawValue:)) ?? .up
+        pixelSize = orientation.swapsAxes
+            ? CGSize(width: stored.height, height: stored.width)
+            : stored
 
         // The preferred extension ("jpeg", "png") reads more tersely in the
         // status bar than the localized description ("JPEG image").
@@ -132,6 +146,133 @@ nonisolated struct ImageInfo {
     }
 }
 
+nonisolated extension CGImagePropertyOrientation {
+    /// Whether this orientation turns the image a quarter turn, so that the
+    /// stored width becomes the displayed height.
+    var swapsAxes: Bool {
+        switch self {
+        case .left, .right, .leftMirrored, .rightMirrored: return true
+        default: return false
+        }
+    }
+}
+
+/// Decodes an image file to a bitmap that is ready to draw.
+///
+/// `NSImage(contentsOf:)` only reads the header: it defers the decode until the
+/// image is first drawn, which puts the expensive part on the main thread at
+/// the moment the user pages to it. Decoding here instead is what makes the
+/// prefetch worth doing.
+nonisolated enum ImageDecoder {
+
+    /// The decoded image and the facts about its file, read from one source.
+    static func load(url: URL) -> (image: NSImage, info: ImageInfo?)? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let info = ImageInfo(url: url, source: source)
+        guard let image = decode(source: source) else { return nil }
+        return (image, info)
+    }
+
+    /// Decodes index 0 of `source`, applying the file's orientation tag.
+    private static func decode(source: CGImageSource) -> NSImage? {
+        // Without this the decode stays lazy and lands on the main thread at
+        // draw time, which is the whole problem this type exists to solve.
+        let options: [CFString: Any] = [kCGImageSourceShouldCacheImmediately: true]
+        guard let decoded = CGImageSourceCreateImageAtIndex(
+            source, 0, options as CFDictionary
+        ) else { return nil }
+
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+            as? [CFString: Any]
+        let orientation = (properties?[kCGImagePropertyOrientation] as? UInt32)
+            .flatMap(CGImagePropertyOrientation.init(rawValue:)) ?? .up
+
+        // CGImage carries no orientation of its own, so unlike NSImage it draws
+        // the stored pixels as they lie. An upright file needs no work; any
+        // other has to be baked in now, while we are off the main actor.
+        guard orientation != .up else {
+            return NSImage(cgImage: decoded, size: pointSize(of: decoded))
+        }
+        guard let rotated = apply(orientation, to: decoded) else {
+            return NSImage(cgImage: decoded, size: pointSize(of: decoded))
+        }
+        return NSImage(cgImage: rotated, size: pointSize(of: rotated))
+    }
+
+    /// Redraws `image` with `orientation` applied, so the result reads upright.
+    private static func apply(
+        _ orientation: CGImagePropertyOrientation,
+        to image: CGImage
+    ) -> CGImage? {
+        let width = image.width
+        let height = image.height
+        let size = orientation.swapsAxes
+            ? CGSize(width: height, height: width)
+            : CGSize(width: width, height: height)
+
+        // A decoded photo may be in any of a dozen colour spaces, some of them
+        // (CMYK, indexed, 16-bit) not valid as a bitmap context. Drawing into
+        // sRGB keeps this to one predictable path.
+        guard let context = CGContext(
+            data: nil,
+            width: Int(size.width),
+            height: Int(size.height),
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB) ?? image.colorSpace
+                ?? CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+                | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return nil }
+
+        // Move the origin to the centre, turn, then draw the untransformed
+        // rect around that centre.
+        context.translateBy(x: size.width / 2, y: size.height / 2)
+        context.concatenate(orientation.transform)
+        context.draw(
+            image,
+            in: CGRect(
+                x: -Double(width) / 2,
+                y: -Double(height) / 2,
+                width: Double(width),
+                height: Double(height)
+            )
+        )
+        return context.makeImage()
+    }
+
+    /// The size in points, which for a bitmap is its pixel size: the scroll
+    /// view scales it explicitly, so NSImage should not scale it again.
+    private static func pointSize(of image: CGImage) -> CGSize {
+        CGSize(width: image.width, height: image.height)
+    }
+}
+
+nonisolated extension CGImagePropertyOrientation {
+    /// The turn that brings an image stored with this orientation upright,
+    /// about the centre of the image.
+    var transform: CGAffineTransform {
+        switch self {
+        case .up: return .identity
+        case .upMirrored: return CGAffineTransform(scaleX: -1, y: 1)
+        case .down: return CGAffineTransform(rotationAngle: .pi)
+        case .downMirrored: return CGAffineTransform(scaleX: 1, y: -1)
+        // A quarter turn, and for two of them a mirroring, compose into the
+        // four sideways cases. The sign is the turn that undoes the stored
+        // orientation, not the one that produced it.
+        case .left: return CGAffineTransform(rotationAngle: .pi / 2)
+        case .leftMirrored:
+            return CGAffineTransform(scaleX: -1, y: 1)
+                .rotated(by: -.pi / 2)
+        case .right: return CGAffineTransform(rotationAngle: -.pi / 2)
+        case .rightMirrored:
+            return CGAffineTransform(scaleX: -1, y: 1)
+                .rotated(by: .pi / 2)
+        @unknown default: return .identity
+        }
+    }
+}
+
 /// The images in one folder, plus a cursor into them.
 ///
 /// Opening any file adopts its whole folder, so the user can page through
@@ -151,6 +292,13 @@ final class ImageBrowser {
     /// Prefetches in flight, kept so they can be cancelled when the user moves
     /// somewhere else and their results are no longer wanted.
     private var prefetching: [URL: Task<Void, Never>] = [:]
+
+    /// The decode of the current image, when it missed the cache.
+    private var loading: Task<Void, Never>?
+
+    /// Bumped whenever the current image changes, so a decode that finishes
+    /// after the user has paged away knows to discard its result.
+    private var generation: Int = 0
 
     /// Which way the user is moving, so the cache fills ahead of them.
     private var direction = 1
@@ -193,6 +341,13 @@ final class ImageBrowser {
         for task in prefetching.values { task.cancel() }
         prefetching.removeAll()
         cache.removeAll()
+        // This window is changing folders, so the image on screen belongs to
+        // the old one and should not sit there while the new one decodes.
+        loading?.cancel()
+        loading = nil
+        image = nil
+        info = nil
+        errorMessage = nil
         urls = Self.siblings(of: url)
         index = urls.firstIndex(of: url.resolvingSymlinksInPath()) ?? 0
         // A file we cannot enumerate the parent of is still worth showing alone.
@@ -289,22 +444,48 @@ final class ImageBrowser {
         }
 
         if let hit = cache[url] {
+            loading?.cancel()
+            loading = nil
+            generation &+= 1
             image = hit.image
             info = hit.info
             errorMessage = nil
-        } else if let loaded = NSImage(contentsOf: url) {
-            let entry = Loaded(image: loaded, info: ImageInfo(url: url))
-            cache[url] = entry
-            image = entry.image
-            info = entry.info
-            errorMessage = nil
         } else {
-            image = nil
-            info = nil
-            errorMessage = "Could not read \(url.lastPathComponent)."
+            // A miss means no prefetch reached this file: opening a folder,
+            // or trashing faster than the decodes keep up. Decoding it off the
+            // main actor keeps the window responsive while it arrives, at the
+            // cost of a moment showing the image we were already on.
+            loadOffMainActor(url)
         }
 
         prefetchNeighbours()
+    }
+
+    /// Decodes `url` in the background and shows it if it is still wanted.
+    private func loadOffMainActor(_ url: URL) {
+        loading?.cancel()
+        generation &+= 1
+        let wanted = generation
+
+        loading = Task { [weak self] in
+            let loaded = await Task.detached(priority: .userInitiated) { () -> Loaded? in
+                guard let decoded = ImageDecoder.load(url: url) else { return nil }
+                return Loaded(image: decoded.image, info: decoded.info)
+            }.value
+
+            guard !Task.isCancelled, let self, self.generation == wanted else { return }
+            self.loading = nil
+            if let loaded {
+                self.cache[url] = loaded
+                self.image = loaded.image
+                self.info = loaded.info
+                self.errorMessage = nil
+            } else {
+                self.image = nil
+                self.info = nil
+                self.errorMessage = "Could not read \(url.lastPathComponent)."
+            }
+        }
     }
 
     /// Decodes the images around the current one, ahead of the user first.
@@ -323,8 +504,8 @@ final class ImageBrowser {
             prefetching[url] = Task { [weak self] in
                 // Decoding is the slow part, so keep it off the main actor.
                 let loaded = await Task.detached(priority: .utility) { () -> Loaded? in
-                    guard let image = NSImage(contentsOf: url) else { return nil }
-                    return Loaded(image: image, info: ImageInfo(url: url))
+                    guard let decoded = ImageDecoder.load(url: url) else { return nil }
+                    return Loaded(image: decoded.image, info: decoded.info)
                 }.value
 
                 guard !Task.isCancelled else { return }
