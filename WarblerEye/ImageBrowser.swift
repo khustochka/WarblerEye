@@ -19,6 +19,10 @@ nonisolated struct ImageInfo {
     var byteCount: Int
     var date: Date?
 
+    /// Whether `date` is the camera's capture time rather than the file's
+    /// modification time. The two need different clocks when displayed.
+    var dateIsCaptureTime: Bool = false
+
     /// Every property the file declares, grouped as ImageIO reports them and
     /// rendered as text. Flattened at read time rather than held as the raw
     /// dictionary so the struct stays sendable across the prefetch boundary.
@@ -35,10 +39,44 @@ nonisolated struct ImageInfo {
 
     var timestamp: String? {
         guard let date else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        let formatter = dateIsCaptureTime
+            ? Self.captureTimestampFormatter
+            : Self.fileTimestampFormatter
         return formatter.string(from: date)
     }
+
+    /// Renders a capture time. Shares the parser's UTC zone so the digits
+    /// survive the round trip unshifted: EXIF records no zone, so 14:30 is the
+    /// wall clock at the shutter and should read back as 14:30 wherever the
+    /// file is later opened.
+    private static let captureTimestampFormatter = timestampFormatter(
+        timeZone: TimeZone(secondsFromGMT: 0)
+    )
+
+    /// Renders a file modification time, which unlike a capture time is a real
+    /// instant, so it belongs in the reader's own zone as Finder shows it.
+    private static let fileTimestampFormatter = timestampFormatter(timeZone: nil)
+
+    /// Built once each: the status bar reads `timestamp` on every redraw, and
+    /// a DateFormatter is expensive to construct.
+    private static func timestampFormatter(timeZone: TimeZone?) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        if let timeZone { formatter.timeZone = timeZone }
+        return formatter
+    }
+
+    /// Parses EXIF's own timestamp format. Fixed to POSIX because the pattern
+    /// is the file's, not the reader's: a non-Gregorian system calendar would
+    /// otherwise read the digits as its own era.
+    private static let exifDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter
+    }()
 
     /// Reads the metadata without decoding the image itself.
     init?(url: URL) {
@@ -61,7 +99,9 @@ nonisolated struct ImageInfo {
 
         colorModel = Self.colorModel(from: properties)
         byteCount = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        date = Self.captureDate(from: properties)
+        let captured = Self.captureDate(from: properties)
+        dateIsCaptureTime = captured != nil
+        date = captured
             ?? (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
                 .contentModificationDate
         metadata = MetadataGroup.groups(from: properties)
@@ -88,9 +128,7 @@ nonisolated struct ImageInfo {
                 ?? exif[kCGImagePropertyExifDateTimeDigitized]) as? String else {
             return nil
         }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
-        return formatter.date(from: raw)
+        return exifDateFormatter.date(from: raw)
     }
 }
 
