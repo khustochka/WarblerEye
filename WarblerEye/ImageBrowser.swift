@@ -267,13 +267,16 @@ final class ImageBrowser {
         loadCurrent()
     }
 
-    /// Presents an open panel and adopts whatever the user picks.
-    func showOpenPanel() {
+    /// Presents an open panel and returns what the user picked.
+    ///
+    /// Returns the URL rather than opening it, since the caller decides
+    /// whether it belongs in this window or a new one.
+    static func runOpenPanel() -> URL? {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = Array(Self.supportedTypes)
+        panel.allowedContentTypes = Array(supportedTypes)
         panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        open(url)
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
     }
 
     private func loadCurrent(clearingNotice: Bool = false) {

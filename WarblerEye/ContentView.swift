@@ -10,6 +10,8 @@ import SwiftUI
 struct ContentView: View {
     let browser: ImageBrowser
 
+    @Environment(\.openWindow) private var openWindow
+
     /// How the image is sized: scaled to the window, or at an explicit scale
     /// where 1 is one image pixel per point.
     enum ZoomMode: Equatable {
@@ -63,18 +65,13 @@ struct ContentView: View {
             // Reset zoom so a new image always arrives fitted to the window.
             zoomMode = .fit
         }
-        .onReceive(NotificationCenter.default.publisher(for: .zoomIn)) { _ in
-            scale(by: 1.25, in: viewportSize, image: imageSize)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .zoomOut)) { _ in
-            scale(by: 1 / 1.25, in: viewportSize, image: imageSize)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .zoomActual)) { _ in
-            zoomMode = .scale(1)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .zoomFit)) { _ in
-            zoomMode = .fit
-        }
+        // Published for the menu, which acts on the front window only.
+        .focusedSceneValue(\.zoom, ZoomCommands(
+            zoomIn: { scale(by: 1.25, in: viewportSize, image: imageSize) },
+            zoomOut: { scale(by: 1 / 1.25, in: viewportSize, image: imageSize) },
+            actualSize: { zoomMode = .scale(1) },
+            fitToWindow: { zoomMode = .fit }
+        ))
         // The title bar blends with the dark backdrop behind it, so the window
         // chrome has to draw its title as if on a dark surface.
         .preferredColorScheme(.dark)
@@ -111,8 +108,20 @@ struct ContentView: View {
             } description: {
                 Text(browser.errorMessage ?? "Open an image, or double-click one in Finder.")
             } actions: {
-                Button("Open…") { browser.showOpenPanel() }
+                Button("Open…") { openFile() }
             }
+        }
+    }
+
+    /// Shows the chosen file. An empty window adopts it; otherwise it opens
+    /// alongside, so one window is never repurposed out from under the image
+    /// the user is looking at.
+    private func openFile() {
+        guard let url = ImageBrowser.runOpenPanel() else { return }
+        if browser.current == nil {
+            browser.open(url)
+        } else {
+            openWindow(value: url)
         }
     }
 
@@ -238,4 +247,24 @@ private extension Comparable {
 
 #Preview {
     ContentView(browser: ImageBrowser())
+}
+
+/// The zoom actions of one window, published so the menu can drive whichever
+/// window has focus.
+struct ZoomCommands {
+    var zoomIn: () -> Void
+    var zoomOut: () -> Void
+    var actualSize: () -> Void
+    var fitToWindow: () -> Void
+}
+
+private struct ZoomFocusedValueKey: FocusedValueKey {
+    typealias Value = ZoomCommands
+}
+
+extension FocusedValues {
+    var zoom: ZoomCommands? {
+        get { self[ZoomFocusedValueKey.self] }
+        set { self[ZoomFocusedValueKey.self] = newValue }
+    }
 }
