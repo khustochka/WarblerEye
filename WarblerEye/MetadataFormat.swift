@@ -91,9 +91,9 @@ nonisolated enum MetadataFormat {
     }
 
     /// Version tags arrive as digit arrays: [2, 3] is version 2.3.
-    static func version(_ parts: [Double], separator: String = ".") -> String? {
+    static func version(_ parts: [Double]) -> String? {
         guard !parts.isEmpty else { return nil }
-        return parts.map { trim($0) }.joined(separator: separator)
+        return parts.map { trim($0) }.joined(separator: ".")
     }
 
     /// A lens's range, as the four-value EXIF specification records it:

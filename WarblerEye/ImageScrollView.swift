@@ -43,7 +43,6 @@ struct ImageScrollView: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let imageView = scrollView.documentView as? DraggableImageView else { return }
-        context.coordinator.scrollView = scrollView
         imageView.onDrag = { [weak scrollView] delta in
             guard let scrollView else { return }
             Coordinator.pan(scrollView, by: delta)
@@ -93,9 +92,6 @@ struct ImageScrollView: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     final class Coordinator {
-        weak var scrollView: NSScrollView?
-        var didPublishPan = false
-
         /// Scrolls by a delta in points, clamped so the image cannot be pushed
         /// past its own edges.
         static func pan(_ scrollView: NSScrollView, by delta: CGSize) {
@@ -171,7 +167,6 @@ final class CenteringClipView: NSClipView {
         return rect
     }
 }
-
 
 /// An image view that pans its scroll view when dragged or arrowed.
 ///

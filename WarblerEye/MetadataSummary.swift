@@ -7,7 +7,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-extension MetadataGroup {
+nonisolated extension MetadataGroup {
     /// The fields a photographer looks for first, gathered from wherever in
     /// the file they happen to live and written the way they would be spoken.
     ///

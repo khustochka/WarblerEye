@@ -137,10 +137,8 @@ nonisolated struct MetadataGroup: Identifiable {
             let numbers = array.compactMap { ($0 as? NSNumber)?.doubleValue }
             guard numbers.count == array.count else { return nil }
             switch name {
-            case "ExifVersion", "FlashPixVersion":
+            case "ExifVersion", "FlashPixVersion", "JFIFVersion":
                 // These spell a version as its digits: [2, 3] is 2.3.
-                return MetadataFormat.version(numbers, separator: numbers.count == 2 ? "." : ".")
-            case "JFIFVersion":
                 return MetadataFormat.version(numbers)
             case "LensSpecification", "LensInfo":
                 return MetadataFormat.lensSpecification(numbers)
