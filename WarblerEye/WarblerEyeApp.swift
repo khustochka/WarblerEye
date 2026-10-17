@@ -168,6 +168,13 @@ struct WarblerEyeApp: App {
                     .keyboardShortcut("/", modifiers: .command)
                     .disabled(focusedZoom == nil)
 
+                Toggle("Keep Zoom and Position", isOn: Binding(
+                    get: { focusedZoom?.keepsView ?? false },
+                    set: { _ in focusedZoom?.toggleKeepsView() }
+                ))
+                .keyboardShortcut("l", modifiers: .command)
+                .disabled(focusedZoom == nil)
+
                 Divider()
             }
         }

@@ -25,6 +25,10 @@ struct ContentView: View {
     /// through a folder with it open keeps it open.
     @State private var showsMetadata = false
 
+    /// Whether paging keeps the zoom and the point in view rather than fitting
+    /// each new image, for comparing the same detail across a burst.
+    @State private var keepsView = false
+
     /// Viewport and image size, mirrored into state so the menu commands can
     /// zoom relative to the current on-screen size.
     @State private var viewportSize: CGSize = .zero
@@ -62,15 +66,19 @@ struct ContentView: View {
                 .frame(width: 0, height: 0)
         )
         .onChange(of: browser.current) {
-            // Reset zoom so a new image always arrives fitted to the window.
-            zoomMode = .fit
+            // A new image arrives fitted to the window unless the view is kept.
+            // Kept, the scale carries over as is and ImageScrollView holds the
+            // centre point, so images of one size line up pixel for pixel.
+            if !keepsView { zoomMode = .fit }
         }
         // Published for the menu, which acts on the front window only.
         .focusedSceneValue(\.zoom, ZoomCommands(
             zoomIn: { scale(by: 1.25, in: viewportSize, image: imageSize) },
             zoomOut: { scale(by: 1 / 1.25, in: viewportSize, image: imageSize) },
             actualSize: { zoomMode = .scale(1) },
-            fitToWindow: { zoomMode = .fit }
+            fitToWindow: { zoomMode = .fit },
+            keepsView: keepsView,
+            toggleKeepsView: { keepsView.toggle() }
         ))
         // The title bar blends with the dark backdrop behind it, so the window
         // chrome has to draw its title as if on a dark surface.
@@ -133,6 +141,9 @@ struct ContentView: View {
             }
             if let percent = zoomPercent {
                 Text(percent)
+            }
+            if keepsView {
+                Label("View kept", systemImage: "lock.fill")
             }
             if let info = browser.info {
                 Text(info.dimensions)
@@ -212,6 +223,8 @@ struct ContentView: View {
             zoomMode = .scale(1)
         case "i", "I":
             showsMetadata.toggle()
+        case "l", "L":
+            keepsView.toggle()
         default:
             return false
         }
@@ -256,6 +269,8 @@ struct ZoomCommands {
     var zoomOut: () -> Void
     var actualSize: () -> Void
     var fitToWindow: () -> Void
+    var keepsView: Bool
+    var toggleKeepsView: () -> Void
 }
 
 private struct ZoomFocusedValueKey: FocusedValueKey {
