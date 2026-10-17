@@ -61,7 +61,7 @@ nonisolated struct ImageInfo {
     /// a DateFormatter is expensive to construct.
     private static func timestampFormatter(timeZone: TimeZone?) -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         if let timeZone { formatter.timeZone = timeZone }
         return formatter
