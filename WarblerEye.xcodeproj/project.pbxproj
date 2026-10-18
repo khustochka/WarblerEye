@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		54358299305DD9D80087DCB9 /* WarblerEye.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WarblerEye.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		54A0C0F1305DD9D80087DCB9 /* WarblerEye.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = WarblerEye.xcconfig; path = Config/WarblerEye.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +33,7 @@
 		54358290305DD9D80087DCB9 = {
 			isa = PBXGroup;
 			children = (
+				54A0C0F1305DD9D80087DCB9 /* WarblerEye.xcconfig */,
 				5435829B305DD9D80087DCB9 /* WarblerEye */,
 				5435829A305DD9D80087DCB9 /* Products */,
 			);
@@ -127,6 +129,7 @@
 /* Begin XCBuildConfiguration section */
 		543582A2305DD9D90087DCB9 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 54A0C0F1305DD9D80087DCB9 /* WarblerEye.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -160,7 +163,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = UNAQ9L85KF;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -191,6 +193,7 @@
 		};
 		543582A3305DD9D90087DCB9 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 54A0C0F1305DD9D80087DCB9 /* WarblerEye.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -224,7 +227,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = UNAQ9L85KF;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -253,7 +255,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UNAQ9L85KF;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -284,7 +285,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UNAQ9L85KF;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

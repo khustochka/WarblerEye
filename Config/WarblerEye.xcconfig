@@ -1,0 +1,10 @@
+// Project-wide build settings, the base for every configuration.
+//
+// Signing identity is per-developer and stays out of the repository: put it in
+// Config/Local.xcconfig (gitignored), for example
+//
+//     DEVELOPMENT_TEAM = ABCDE12345
+//
+// Without that file the project still builds, signing to run locally.
+
+#include? "Local.xcconfig"
