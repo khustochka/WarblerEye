@@ -6,9 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		54B1E0F7305DD9D80087DCB9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 54358291305DD9D80087DCB9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 54358298305DD9D80087DCB9;
+			remoteInfo = WarblerEye;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		54358299305DD9D80087DCB9 /* WarblerEye.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WarblerEye.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		54A0C0F1305DD9D80087DCB9 /* WarblerEye.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = WarblerEye.xcconfig; path = Config/WarblerEye.xcconfig; sourceTree = "<group>"; };
+		54B1E0F1305DD9D80087DCB9 /* WarblerEyeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WarblerEyeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -17,9 +28,21 @@
 			path = WarblerEye;
 			sourceTree = "<group>";
 		};
+		54B1E0F2305DD9D80087DCB9 /* WarblerEyeTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WarblerEyeTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		54B1E0F3305DD9D80087DCB9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		54358296305DD9D80087DCB9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -35,6 +58,7 @@
 			children = (
 				54A0C0F1305DD9D80087DCB9 /* WarblerEye.xcconfig */,
 				5435829B305DD9D80087DCB9 /* WarblerEye */,
+				54B1E0F2305DD9D80087DCB9 /* WarblerEyeTests */,
 				5435829A305DD9D80087DCB9 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +67,7 @@
 			isa = PBXGroup;
 			children = (
 				54358299305DD9D80087DCB9 /* WarblerEye.app */,
+				54B1E0F1305DD9D80087DCB9 /* WarblerEyeTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -72,6 +97,29 @@
 			productReference = 54358299305DD9D80087DCB9 /* WarblerEye.app */;
 			productType = "com.apple.product-type.application";
 		};
+		54B1E0F6305DD9D80087DCB9 /* WarblerEyeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 54B1E0FB305DD9D80087DCB9 /* Build configuration list for PBXNativeTarget "WarblerEyeTests" */;
+			buildPhases = (
+				54B1E0F4305DD9D80087DCB9 /* Sources */,
+				54B1E0F3305DD9D80087DCB9 /* Frameworks */,
+				54B1E0F5305DD9D80087DCB9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				54B1E0F8305DD9D80087DCB9 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				54B1E0F2305DD9D80087DCB9 /* WarblerEyeTests */,
+			);
+			name = WarblerEyeTests;
+			packageProductDependencies = (
+			);
+			productName = WarblerEyeTests;
+			productReference = 54B1E0F1305DD9D80087DCB9 /* WarblerEyeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -84,6 +132,10 @@
 				TargetAttributes = {
 					54358298305DD9D80087DCB9 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					54B1E0F6305DD9D80087DCB9 = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = 54358298305DD9D80087DCB9;
 					};
 				};
 			};
@@ -102,11 +154,19 @@
 			projectRoot = "";
 			targets = (
 				54358298305DD9D80087DCB9 /* WarblerEye */,
+				54B1E0F6305DD9D80087DCB9 /* WarblerEyeTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		54B1E0F5305DD9D80087DCB9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		54358297305DD9D80087DCB9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -117,6 +177,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		54B1E0F4305DD9D80087DCB9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		54358295305DD9D80087DCB9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -126,7 +193,51 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		54B1E0F8305DD9D80087DCB9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 54358298305DD9D80087DCB9 /* WarblerEye */;
+			targetProxy = 54B1E0F7305DD9D80087DCB9 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		54B1E0F9305DD9D80087DCB9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vkhust.WarblerEyeTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WarblerEye.app/Contents/MacOS/WarblerEye";
+			};
+			name = Debug;
+		};
+		54B1E0FA305DD9D80087DCB9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vkhust.WarblerEyeTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WarblerEye.app/Contents/MacOS/WarblerEye";
+			};
+			name = Release;
+		};
 		543582A2305DD9D90087DCB9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 54A0C0F1305DD9D80087DCB9 /* WarblerEye.xcconfig */;
@@ -324,6 +435,15 @@
 			buildConfigurations = (
 				543582A5305DD9D90087DCB9 /* Debug */,
 				543582A6305DD9D90087DCB9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		54B1E0FB305DD9D80087DCB9 /* Build configuration list for PBXNativeTarget "WarblerEyeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				54B1E0F9305DD9D80087DCB9 /* Debug */,
+				54B1E0FA305DD9D80087DCB9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

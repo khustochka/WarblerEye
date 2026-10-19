@@ -73,6 +73,14 @@ folder is then a keypress away.
 Zoom commands are in the **View** menu and navigation is in the **Image**
 menu, in case you forget a shortcut.
 
+## Development
+
+Run the tests with ⌘U in Xcode, or from the command line:
+
+    xcodebuild test -scheme WarblerEye -destination 'platform=macOS'
+
+The browser tests move fixture files to the Trash and restore them with undo.
+
 ## License
 
 WarblerEye is released under the [MIT License](LICENSE).
