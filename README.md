@@ -1,4 +1,8 @@
-# WarblerEye
+<p align="center">
+  <img src="WarblerEye/Assets.xcassets/AppIcon.appiconset/icon_256x256@2x.png" width="128" height="128" alt="">
+</p>
+
+<h1 align="center">WarblerEye</h1>
 
 A fast, keyboard-driven image viewer for macOS. Open one photo and page through
 every image in its folder, zoom in on detail, check the metadata, and trash the
